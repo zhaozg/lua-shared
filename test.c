@@ -6,7 +6,7 @@ _dumparray(struct ltable *t) {
     unsigned int i = 0;
     int *p;
     printf("iter array:\n");
-    while (p = ltable_getn(t, i)) {
+    while ((p = ltable_getn(t, i))!=NULL) {
         printf("\t%d: %d\n", i, *p);
         i++;
     }
@@ -17,16 +17,16 @@ _dump(struct ltable *t) {
     unsigned int i = 0;
     int *p;
     struct ltable_key kp;
-    
+
     printf("iter table:\n");
     i = 0;
-    while (p = ltable_next(t, &i, &kp)) {
+    while ((p = ltable_next(t, &i, &kp))!=NULL) {
         switch (kp.type) {
         case LTABLE_KEYNUM:
             printf("\tkey=%.3f, val=%d\n", kp.v.f, *p);
             break;
         case LTABLE_KEYINT:
-            printf("\tkey=%d, val=%d\n", kp.v.i, *p);
+            printf("\tkey=%d, val=%d\n", (int)kp.v.i, *p);
             break;
         case LTABLE_KEYSTR:
             printf("\tkey=['%s'], val=%d\n", kp.v.s, *p);
@@ -68,12 +68,16 @@ main() {
     for(i=0;i<10;i++) {
         p = ltable_set(t, ltable_intkey(&key, i));
         *p = i+1;
+        printf("Array length %d\n", ltable_len(t));
     }
 
+    i = ltable_len(t);
+    printf("Array length %d\n", i);
     _dumparray(t);
 
     for(i=9;i>=0;i--){
         ltable_del(t, ltable_intkey(&key, i));
+        printf("Array length %d\n", ltable_len(t));
     }
 
     p = ltable_set(t, ltable_strkey(&key, "bar"));
