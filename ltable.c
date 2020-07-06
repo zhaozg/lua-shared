@@ -659,7 +659,7 @@ ltable_create(size_t vmemsz, unsigned int seed)
   t->seed = seed == 0 ? LTABLE_SEED : seed;
   pool_init(&t->pool);
 
-  _resize(t, 0, 1);
+  _resize(t, 4, 4);
   return t;
 }
 

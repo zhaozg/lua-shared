@@ -36,7 +36,7 @@ static void shared_init_once()
   }
 }
 
-static int shared_push(lua_State *L, Value *val)
+static int shared_pushval(lua_State *L, Value *val)
 {
   if (val!=NULL)
   {
@@ -52,7 +52,9 @@ static int shared_push(lua_State *L, Value *val)
       lua_pushlstring(L, val->v.s.p, val->v.s.l);
       break;
     case LUA_TLIGHTUSERDATA:
-      lua_pushlightuserdata(L, val->v.p);
+      *(void**)lua_newuserdata(L, sizeof(void*)) = val->v.p;
+      luaL_getmetatable(L, "lua.shared");
+      lua_setmetatable(L, -2);
       break;
     default:
       lua_pushnil(L);
@@ -87,6 +89,8 @@ static Value* shared_tovalue(lua_State *L, int idx, Value *val)
   {
     val->type = LUA_TLIGHTUSERDATA;
     val->v.p = lua_touserdata(L, idx);
+    printf("shared: %p:%d\n", val->v.p, ltable_len(val->v.p));
+
   }else
     val->type = LUA_TNIL;
   return val;
@@ -154,7 +158,7 @@ static int shared_get(lua_State *L)
 
   val = ltable_get(t, key);
   uv_mutex_unlock(&_mutex);
-  return shared_push(L, val);
+  return shared_pushval(L, val);
 }
 
 static int shared_length(lua_State *L)
@@ -206,7 +210,7 @@ static int shared_remove(lua_State *L)
   key = ltable_intkey(&skey, i);
   uv_mutex_lock(&_mutex);
   val = ltable_set(t, key);
-  ret = shared_push(L, val);
+  ret = shared_pushval(L, val);
   shared_freevalue(val);
 
   len = ltable_len(t);
@@ -238,12 +242,59 @@ static const luaL_Reg classR[] =
   { NULL,  NULL}
 };
 
-static int shared_object(lua_State *L)
+static int shared_global(lua_State *L)
 {
   *(void**)lua_newuserdata(L, sizeof(void*)) = _table;
   luaL_getmetatable(L, "lua.shared");
   lua_setmetatable(L, -2);
   return 1;
+}
+
+static int shared_push(lua_State *L)
+{
+  int off;
+  struct ltable_key skey, *key;
+  Value *val;
+  struct ltable *t = *(struct ltable**)luaL_checkudata(L, 1, "lua.shared");
+  struct ltable *n = ltable_create(sizeof(Value), 0);
+
+  uv_mutex_lock(&_mutex);
+  off = ltable_len(t);
+  key = ltable_intkey(&skey, off);
+  val = ltable_set(t, key);
+  uv_mutex_unlock(&_mutex);
+  val->type = LUA_TLIGHTUSERDATA;
+  val->v.p = n;
+
+  return shared_pushval(L, val);
+}
+
+static int shared_pop(lua_State *L)
+{
+  int off, len, i, ret;
+  struct ltable_key skey, *key;
+  struct ltable *t = *(struct ltable**)luaL_checkudata(L, 1, "lua.shared");
+  Value *val;
+
+  ret = 0;
+  uv_mutex_lock(&_mutex);
+  val = ltable_getn(t, 0);
+  if (val) {
+    i = 0;
+    ret = shared_pushval(L, val);
+
+    len = ltable_len(t);
+    key = ltable_intkey(&skey, 0);
+    while(++i < len)
+    {
+      val = ltable_getn(t, i);
+      *(Value*)ltable_set(t, key) = *val;
+      key = ltable_intkey(&skey, i);
+    }
+    ltable_del(t, key);
+  }
+  uv_mutex_unlock(&_mutex);
+  return ret;
 }
 
 static const luaL_Reg sharedR[] =
@@ -255,7 +306,11 @@ static const luaL_Reg sharedR[] =
   { "remove", shared_remove},
   { "len", shared_length},
 
-  { "object", shared_object},
+  { "global", shared_global},
+
+  { "push", shared_push},
+  { "pop", shared_pop},
+  { "release", shared_gc},
 
   { NULL,  NULL}
 };
