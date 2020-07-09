@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#define LTABLE_SEED
+#define LTABLE_SEED    65537
 
 #define LTABLE_KEYNUM      1
 #define LTABLE_KEYINT      2
@@ -41,5 +41,4 @@ struct ltable_key* ltable_numkey(struct ltable_key *key, double k);
 struct ltable_key* ltable_strkey(struct ltable_key *key, const char* k);
 struct ltable_key* ltable_intkey(struct ltable_key *key, long int k);
 struct ltable_key* ltable_objkey(struct ltable_key *key, const void *p);
-
 #endif

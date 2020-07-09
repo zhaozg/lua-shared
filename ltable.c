@@ -551,11 +551,12 @@ numusehash (const struct ltable *t, int *nums, int *pnasize)
 void
 _resize_node(struct ltable *t, int size)
 {
+  int memsz;
   int lsize = size > 0 ? _ceillog2(size) : 0; /* at least one node */
   if (lsize > MAXBITS)
     assert(0);
   size = twoto(lsize);
-  int memsz = nodememsz(t)*size;
+  memsz = nodememsz(t)*size;
   t->node = malloc(memsz);
   memset(t->node, 0, memsz);
   t->lsizenode = (uint8_t)lsize;
@@ -784,8 +785,10 @@ ltable_numkey(struct ltable_key *key, double k)
 
   return key;
 }
-
-inline struct ltable_key*
+#ifndef _MSC_VER
+inline
+#endif
+struct ltable_key*
 ltable_strkey(struct ltable_key *key, const char* k)
 {
   key->type = LTABLE_KEYSTR;
